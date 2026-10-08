@@ -11,9 +11,18 @@ import {requireGitHubIntegrationConfig,isGitHubIntegrationConfigured} from "@/li
 import {exchangeGitHubUserCode} from "@/lib/infrastructure/github-install-auth.mjs";
 import {githubOAuthSecretName,githubOAuthSecretPath,githubOAuthSecretRef} from "@/lib/infrastructure/github-vault-location.mjs";
 export const dynamic="force-dynamic";
-type FailStage="config"|"github_return"|"session"|"auth"|"project"|"oauth_exchange"|"vault_store"|"connection_save"|"binding_save"|"unknown";
+type FailStage="config"|"github_return"|"session"|"auth"|"project"|"vault_secret_read"|"oauth_exchange"|"oauth_credentials"|"oauth_redirect"|"oauth_code"|"oauth_rejected"|"vault_store"|"connection_save"|"binding_save"|"unknown";
 function finish(status:"connected"|"error",stage?:FailStage){const u=new URL("/",process.env.UNITY_APP_ORIGIN||"http://localhost:3000");u.searchParams.set("connection","github");u.searchParams.set("status",status);if(stage)u.searchParams.set("stage",stage);return u}
 function path(base:string,suffix:string){return `${base.replace(/\/$/,"")}/${suffix}`}
+function callbackUrl(){return new URL("/api/private/connect/github/callback",process.env.UNITY_APP_ORIGIN||"http://localhost:3000").toString()}
+function oauthFailureStage(error:unknown,current:FailStage):FailStage{
+ if(!(error instanceof Error))return current;
+ if(error.message==="GITHUB_OAUTH_INCORRECT_CREDENTIALS")return "oauth_credentials";
+ if(error.message==="GITHUB_OAUTH_REDIRECT_MISMATCH")return "oauth_redirect";
+ if(error.message==="GITHUB_OAUTH_BAD_CODE")return "oauth_code";
+ if(error.message==="GITHUB_OAUTH_REJECTED")return "oauth_rejected";
+ return current;
+}
 export async function GET(request:Request){
  const fail=(stage:FailStage)=>{const r=NextResponse.redirect(finish("error",stage),303);r.cookies.delete(CONNECTION_AUTH_COOKIE.name);return r};
  if(!isSupabaseConfigured()||!isSupabaseAdminConfigured()||!isInfisicalConfigured()||!isGitHubIntegrationConfigured())return fail("config");
@@ -34,8 +43,11 @@ export async function GET(request:Request){
    createInfisicalLocation({secretRef:oauthRef,secretName:githubOAuthSecretName(verified.projectId),projectId:bootstrap.projectId,environment:bootstrap.environment,secretPath:githubOAuthSecretPath(bootstrap.secretPath)})
   ]);
   const vault=createInfisicalVault({locations:registry,getBootstrapCredentials:async()=>({clientId:bootstrap.clientId,clientSecret:bootstrap.clientSecret})});
-  stage="oauth_exchange";
-  const exchanged=await vault.useSecret(appSecretRef,(clientSecret:string)=>exchangeGitHubUserCode({clientId:cfg.clientId,clientSecret,code}));
+  stage="vault_secret_read";
+  const exchanged=await vault.useSecret(appSecretRef,(clientSecret:string)=>{
+   stage="oauth_exchange";
+   return exchangeGitHubUserCode({clientId:cfg.clientId,clientSecret,code,redirectUri:callbackUrl()});
+  });
   const expiresAt=exchanged.expiresIn?new Date(Date.now()+exchanged.expiresIn*1000).toISOString():null;
   stage="vault_store";
   await vault.putSecret(oauthRef,JSON.stringify({version:1,accessToken:exchanged.accessToken,refreshToken:exchanged.refreshToken,expiresAt}));
@@ -45,5 +57,5 @@ export async function GET(request:Request){
   stage="binding_save";
   const {error:bindingError}=await admin.from("project_account_bindings").upsert({project_id:verified.projectId,account_connection_id:connection.id,resource_id:"github:account",permission_mode:"read",updated_at:new Date().toISOString()},{onConflict:"project_id,account_connection_id,resource_id"});if(bindingError)return fail("binding_save");
   const r=NextResponse.redirect(finish("connected"),303);r.cookies.delete(CONNECTION_AUTH_COOKIE.name);return r;
- }catch{return fail(stage||"unknown")}
+ }catch(error){return fail(oauthFailureStage(error,stage||"unknown"))}
 }
