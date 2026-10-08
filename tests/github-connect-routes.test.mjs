@@ -11,7 +11,8 @@ const select=read("app/api/private/connect/github/select-repository/route.ts");
 test("GitHub connection start is project owned and anti-forgery scoped",()=>{
  assert.match(start,/eq\("owner_id",user\.id\)/);
  assert.match(start,/createConnectionAuthSession\(\{service:"github"/);
- assert.match(start,/buildGitHubInstallationUrl/);
+ assert.match(start,/buildGitHubAuthorizationUrl/);
+ assert.match(start,/clientId/);
  assert.match(start,/CONNECTION_AUTH_COOKIE/);
 });
 
