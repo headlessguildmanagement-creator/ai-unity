@@ -37,7 +37,7 @@ test("vault exchanges machine identity credentials and retrieves exactly one map
     if(String(url).includes("/api/v4/secrets/OPENROUTER_API_KEY")){
       return {ok:true,json:async()=>({secret:{secretValue:"fake-openrouter-value"}})};
     }
-    return {ok:false,json:async()=>({})};
+    return {ok:false,status:500,json:async()=>({})};
   };
   const vault=createInfisicalVault({
     locations:createInfisicalLocationRegistry([location()]),
@@ -55,6 +55,22 @@ test("vault exchanges machine identity credentials and retrieves exactly one map
   assert.match(calls[1].url,/environment=prod/);
   assert.match(calls[1].url,/secretPath=%2Funity%2Ffpx/);
   assert.equal(calls[1].options.headers.Authorization,"Bearer short-lived-access-token");
+});
+
+test("vault falls back to folder listing when direct secret lookup is rejected",async()=>{
+  let readCalls=0;
+  const fakeFetch=async(url)=>{
+    const target=String(url);
+    if(target.endsWith("/api/v1/auth/universal-auth/login"))return {ok:true,json:async()=>({accessToken:"short-lived-access-token"})};
+    readCalls++;
+    if(target.includes("/api/v4/secrets/OPENROUTER_API_KEY"))return {ok:false,status:400,json:async()=>({})};
+    if(target.includes("/api/v4/secrets?"))return {ok:true,status:200,json:async()=>({secrets:[{secretKey:"OPENROUTER_API_KEY",secretValue:"folder-value",type:"shared"}]})};
+    return {ok:false,status:500,json:async()=>({})};
+  };
+  const vault=createInfisicalVault({locations:createInfisicalLocationRegistry([location()]),getBootstrapCredentials:async()=>({clientId:"fake-client-id",clientSecret:"fake-client-secret"}),fetchImpl:fakeFetch});
+  const result=await vault.useSecret("secret:openrouter/fpx/main",async secret=>secret);
+  assert.equal(result,"folder-value");
+  assert.equal(readCalls,2);
 });
 
 test("vault creates a mapped secret without returning the secret value",async()=>{
@@ -117,7 +133,7 @@ test("vault refuses unreviewed hosts, unknown refs and missing machine identity"
     fetchImpl:async()=>({ok:false})
   });
   await assert.rejects(()=>vault.useSecret("secret:unknown/service/key",async()=>null),/Unknown Infisical secret reference/);
-  await assert.rejects(()=>vault.useSecret("secret:openrouter/fpx/main",async()=>null),/machine identity is not configured/);
+  await assert.rejects(()=>vault.useSecret("secret:openrouter/fpx/main",async()=>null),/INFISICAL_BOOTSTRAP_MISSING/);
   await assert.rejects(()=>vault.putSecret("secret:unknown/service/key","value"),/Unknown Infisical secret reference/);
 });
 
@@ -125,10 +141,10 @@ test("Infisical errors are sanitized and never echo remote bodies",async()=>{
   const vault=createInfisicalVault({
     locations:createInfisicalLocationRegistry([location()]),
     getBootstrapCredentials:async()=>({clientId:"fake-client-id",clientSecret:"fake-client-secret"}),
-    fetchImpl:async()=>({ok:false,json:async()=>({error:"raw-sensitive-provider-text"})})
+    fetchImpl:async()=>({ok:false,status:500,json:async()=>({error:"raw-sensitive-provider-text"})})
   });
   await assert.rejects(()=>vault.useSecret("secret:openrouter/fpx/main",async()=>null),error=>{
-    assert.equal(error.message,"Infisical authentication failed");
+    assert.equal(error.message,"INFISICAL_LOGIN_FAILED");
     assert.doesNotMatch(error.message,/raw-sensitive/);
     return true;
   });
