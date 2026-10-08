@@ -13,6 +13,7 @@ import {buildGitHubAuthorizationUrl} from "@/lib/infrastructure/github-install-a
 export const dynamic="force-dynamic";
 const headers={"Cache-Control":"private, no-store"};
 const schema=z.object({projectId:z.string().uuid()}).strict();
+function callbackUrl(){return new URL("/api/private/connect/github/callback",process.env.UNITY_APP_ORIGIN||"http://localhost:3000").toString()}
 export async function POST(request:Request){
  if(!isSupabaseConfigured()||!isSupabaseAdminConfigured()||!isInfisicalConfigured()||!isGitHubIntegrationConfigured())return NextResponse.json({error:"Secure GitHub connection backend is not configured"},{status:503,headers});
  if(!checkWriteOrigin(request.headers.get("origin"),process.env.UNITY_APP_ORIGIN).allowed)return NextResponse.json({error:"Untrusted request origin"},{status:403,headers});
@@ -26,7 +27,7 @@ export async function POST(request:Request){
   const sessionSecret=process.env.UNITY_CONNECTION_SESSION_SECRET;if(!sessionSecret)return NextResponse.json({error:"Connection session security is not configured"},{status:503,headers});
   const session=createConnectionAuthSession({service:"github",projectId:parsed.data.projectId});
   const {clientId}=requireGitHubIntegrationConfig();
-  const response=NextResponse.json({authorizationUrl:buildGitHubAuthorizationUrl({clientId,state:session.state}),expiresAt:session.expiresAt},{headers});
+  const response=NextResponse.json({authorizationUrl:buildGitHubAuthorizationUrl({clientId,state:session.state,redirectUri:callbackUrl()}),expiresAt:session.expiresAt},{headers});
   response.cookies.set(CONNECTION_AUTH_COOKIE.name,sealConnectionAuthSession(session,sessionSecret),{httpOnly:true,secure:true,sameSite:"lax",path:"/",maxAge:CONNECTION_AUTH_COOKIE.maxAge});
   return response;
  }catch{return NextResponse.json({error:"GitHub connection could not be started"},{status:503,headers})}
