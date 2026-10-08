@@ -9,7 +9,7 @@ import {readBoundedJson} from "@/lib/security/bounded-body.mjs";
 import {createConnectionAuthSession} from "@/lib/security/connection-auth-session.mjs";
 import {sealConnectionAuthSession,CONNECTION_AUTH_COOKIE} from "@/lib/security/connection-auth-cookie.mjs";
 import {requireGitHubIntegrationConfig,isGitHubIntegrationConfigured} from "@/lib/infrastructure/github-integration-config";
-import {buildGitHubInstallationUrl} from "@/lib/infrastructure/github-install-auth.mjs";
+import {buildGitHubAuthorizationUrl} from "@/lib/infrastructure/github-install-auth.mjs";
 export const dynamic="force-dynamic";
 const headers={"Cache-Control":"private, no-store"};
 const schema=z.object({projectId:z.string().uuid()}).strict();
@@ -25,8 +25,8 @@ export async function POST(request:Request){
   if(error)return NextResponse.json({error:"Project service unavailable"},{status:503,headers});if(!project)return NextResponse.json({error:"Project not found"},{status:404,headers});
   const sessionSecret=process.env.UNITY_CONNECTION_SESSION_SECRET;if(!sessionSecret)return NextResponse.json({error:"Connection session security is not configured"},{status:503,headers});
   const session=createConnectionAuthSession({service:"github",projectId:parsed.data.projectId});
-  const {appSlug}=requireGitHubIntegrationConfig();
-  const response=NextResponse.json({authorizationUrl:buildGitHubInstallationUrl({appSlug,state:session.state}),expiresAt:session.expiresAt},{headers});
+  const {clientId}=requireGitHubIntegrationConfig();
+  const response=NextResponse.json({authorizationUrl:buildGitHubAuthorizationUrl({clientId,state:session.state}),expiresAt:session.expiresAt},{headers});
   response.cookies.set(CONNECTION_AUTH_COOKIE.name,sealConnectionAuthSession(session,sessionSecret),{httpOnly:true,secure:true,sameSite:"lax",path:"/",maxAge:CONNECTION_AUTH_COOKIE.maxAge});
   return response;
  }catch{return NextResponse.json({error:"GitHub connection could not be started"},{status:503,headers})}
