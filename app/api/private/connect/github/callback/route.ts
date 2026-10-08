@@ -11,7 +11,7 @@ import {requireGitHubIntegrationConfig,isGitHubIntegrationConfigured} from "@/li
 import {exchangeGitHubUserCode} from "@/lib/infrastructure/github-install-auth.mjs";
 import {githubOAuthSecretName,githubOAuthSecretPath,githubOAuthSecretRef} from "@/lib/infrastructure/github-vault-location.mjs";
 export const dynamic="force-dynamic";
-type FailStage="config"|"github_return"|"session"|"auth"|"project"|"vault_auth"|"vault_forbidden"|"vault_missing"|"vault_network"|"vault_invalid"|"vault_secret_read"|"oauth_exchange"|"oauth_credentials"|"oauth_redirect"|"oauth_code"|"oauth_rejected"|"vault_store"|"connection_save"|"binding_save"|"unknown";
+type FailStage="config"|"github_return"|"session"|"auth"|"project"|"vault_auth"|"vault_forbidden"|"vault_missing"|"vault_network"|"vault_invalid"|"vault_request"|"vault_secret_read"|"oauth_exchange"|"oauth_credentials"|"oauth_redirect"|"oauth_code"|"oauth_rejected"|"vault_store"|"connection_save"|"binding_save"|"unknown";
 function finish(status:"connected"|"error",stage?:FailStage){const u=new URL("/",process.env.UNITY_APP_ORIGIN||"http://localhost:3000");u.searchParams.set("connection","github");u.searchParams.set("status",status);if(stage)u.searchParams.set("stage",stage);return u}
 function path(base:string,suffix:string){return `${base.replace(/\/$/,"")}/${suffix}`}
 function callbackUrl(){return new URL("/api/private/connect/github/callback",process.env.UNITY_APP_ORIGIN||"http://localhost:3000").toString()}
@@ -26,6 +26,7 @@ function failureStage(error:unknown,current:FailStage):FailStage{
  if(error.message==="INFISICAL_SECRET_MISSING"||error.message==="INFISICAL_PATH_MISSING")return "vault_missing";
  if(error.message==="INFISICAL_NETWORK_ERROR")return "vault_network";
  if(error.message==="INFISICAL_INVALID_RESPONSE"||error.message==="INFISICAL_SECRET_VALUE_UNAVAILABLE")return "vault_invalid";
+ if(error.message==="INFISICAL_BAD_REQUEST"||error.message==="INFISICAL_READ_FAILED")return "vault_request";
  return current;
 }
 export async function GET(request:Request){
