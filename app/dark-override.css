@@ -1,0 +1,43 @@
+/* UNITY dark-room palette override.
+ * Keeps System as the default appearance mode while making resolved dark mode
+ * genuinely dark, low-glare, and neutral rather than green-heavy.
+ */
+:root[data-resolved-theme="dark"]{
+ color-scheme:dark;
+ --u-canvas:#171B20;
+ --u-nav:#1C2229;
+ --u-surface:#222930;
+ --u-surface-raised:#29323B;
+ --u-text:#E7ECEF;
+ --u-muted:#A7B0B8;
+ --u-border:#38424C;
+ --u-accent:#9FC6CB;
+ --u-accent-tint:#2C3B41;
+ --u-focus:#B7D9DD;
+ --u-warm:#D8B8A5;
+ --u-danger:#EAA0AA;
+ --u-success:#9FD2B8;
+ --u-warning:#D9BF8A;
+ --u-shadow:0 18px 48px rgba(0,0,0,.22);
+}
+
+@media(prefers-color-scheme:dark){
+ :root:not([data-resolved-theme]){
+  color-scheme:dark;
+  --u-canvas:#171B20;
+  --u-nav:#1C2229;
+  --u-surface:#222930;
+  --u-surface-raised:#29323B;
+  --u-text:#E7ECEF;
+  --u-muted:#A7B0B8;
+  --u-border:#38424C;
+  --u-accent:#9FC6CB;
+  --u-accent-tint:#2C3B41;
+  --u-focus:#B7D9DD;
+  --u-warm:#D8B8A5;
+  --u-danger:#EAA0AA;
+  --u-success:#9FD2B8;
+  --u-warning:#D9BF8A;
+  --u-shadow:0 18px 48px rgba(0,0,0,.22);
+ }
+}
