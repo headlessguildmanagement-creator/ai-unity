@@ -17,10 +17,15 @@ type Props={
  onNewProject:()=>void;
 };
 
+function normalize(value:string){
+ return value.toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+}
+
 export default function HomeWorkspace({
  workspace,selectedProjectId,onSelectProject,onNavigate,onNewProject
 }:Props){
  const [intent,setIntent]=useState("");
+ const [routeNotice,setRouteNotice]=useState("");
  const current=workspace.projects.find(project=>project.id===selectedProjectId);
  const recent=useMemo(()=>[...workspace.projects]
   .sort((a,b)=>b.createdAt.localeCompare(a.createdAt)).slice(0,4),[workspace.projects]);
@@ -31,9 +36,33 @@ export default function HomeWorkspace({
 
  function routeIntent(event:FormEvent){
   event.preventDefault();
-  const value=intent.trim().toLowerCase();
+  const raw=intent.trim();
+  const value=normalize(raw);
   if(!value)return;
-  if(/project|workspace|client/.test(value))onNavigate("Projects");
+
+  const matchedProjects=workspace.projects.filter(project=>{
+   const name=normalize(project.name);
+   return name.length>=2 && (` ${value} `).includes(` ${name} `);
+  });
+
+  if(matchedProjects.length>1){
+   setRouteNotice("I found more than one matching project. Choose the project first so UNITY does not guess.");
+   onNavigate("Projects");
+   return;
+  }
+
+  const matchedProject=matchedProjects[0];
+  if(matchedProject){
+   onSelectProject(matchedProject.id);
+   setRouteNotice(`Using ${matchedProject.name} for this request.`);
+  }else if(!selectedProjectId&&workspace.projects.length===1){
+   onSelectProject(workspace.projects[0].id);
+   setRouteNotice(`Using ${workspace.projects[0].name} for this request.`);
+  }else{
+   setRouteNotice("");
+  }
+
+  if(/\b(new|create|add)\b.*\b(project|workspace|client)\b/.test(value))onNavigate("Projects");
   else if(/remember|knowledge|note|brain|document/.test(value))onNavigate("Memory");
   else if(/automation|automate|repeat|schedule|trigger|recurring/.test(value))onNavigate("Automations");
   else if(/task|plan|todo|mission|work/.test(value))onNavigate("Tasks");
@@ -65,7 +94,8 @@ export default function HomeWorkspace({
       <ArrowRight size={18}/>
      </button>
     </form>
-    <p id="intent-help" className="home-hint">This routes you to an existing workspace. AI replies and external actions are still locked until you connect and authorize them.</p>
+    <p id="intent-help" className="home-hint">This routes you to an existing workspace. Name a project and UNITY will select it when the match is clear. AI replies and external actions stay locked until authorized.</p>
+    {routeNotice&&<p className="home-hint" role="status">{routeNotice}</p>}
     <div className="home-actions" aria-label="Quick actions">
      <button className="primary" onClick={onNewProject}><Plus size={18}/> New project</button>
      <button onClick={()=>onNavigate("Chat")}><MessageCircle size={18}/> Conversations</button>
