@@ -13,11 +13,11 @@ export function IntegrationCatalog(){
  const connectionReady=useMemo(()=>connectionCatalog.services.filter(item=>(item.name+" "+item.category+" "+item.connection+" "+item.signIn).toLowerCase().includes(query.toLowerCase())),[query]);
  return <>
  <section className="panel universal-catalog" aria-label="Cross-platform integration roadmap">
-  <div className="entry-head"><h2>Universal connections</h2><span className="pill">CONNECTION LAYER READY</span></div>
-  <p className="muted">UNITY is organized around your projects, not GitHub. These are not installed integrations. The services below have a safe connection plan, but each account still needs a supported API and separate permission before UNITY can read or act on anything.</p>
+  <div className="entry-head"><h2>Universal connections</h2><span className="pill">CONNECTION PLANS ONLY</span></div>
+  <p className="muted">UNITY is organized around your projects, not GitHub. These are not installed integrations. The services below have a documented connection plan, but each account still needs a supported API and separate permission before UNITY can read or act on anything.</p>
   <label className="universal-search"><Search size={17}/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Search integrations or categories" aria-label="Search planned integrations"/></label>
   <div className="model-list" aria-label="Services prepared for account setup">{connectionReady.map(item=><article className="entry" key={item.id}><div className="entry-head"><strong>{item.name}</strong><span className="pill">{item.state}</span></div><p>{item.category} · {item.connection}</p><small>Website sign-in: {item.signIn}. This does not authorize UNITY.</small></article>)}</div>
-  {connectionReady.length===0&&<p role="status">No connection-ready service matches this search.</p>}
+  {connectionReady.length===0&&<p role="status">No prepared connection plan matches this search.</p>}
   <details><summary>See the wider integration roadmap</summary><div className="universal-groups">{filtered.map(group=><div key={group.category} className="universal-group"><strong>{group.category}</strong><div className="universal-tags">{group.providers.map(name=><span key={name}>{name}</span>)}</div></div>)}</div>{filtered.length===0&&<p role="status">No matching provider in the wider roadmap. A standards-based connector can be evaluated later.</p>}</details>
   <div className="universal-policy"><ShieldCheck size={18}/><span>Read-only first. Exact account, project scope, revocation and specific approval for external changes are mandatory. API keys and passwords never belong in project records.</span></div>
  </section>

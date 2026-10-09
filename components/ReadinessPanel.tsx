@@ -65,8 +65,8 @@ export default function ReadinessPanel(){
     </section>
     <section className="rail-panel readiness-link-panel">
      <ClipboardCheck size={26}/><h3>Full launch checklist</h3>
-     <p>Detailed infrastructure requirements, connection-day testing and the ninety-day personal evaluation are maintained in the repository.</p>
-     <a href="https://github.com/gabrielbalenton/ai-unity/blob/main/docs/DEPLOYMENT_CHECKLIST.md"
+     <p>Detailed infrastructure requirements, connection-day testing and the ninety-day personal evaluation are maintained in the canonical repository.</p>
+     <a href="https://github.com/headlessguildmanagement-creator/ai-unity/blob/main/docs/DEPLOYMENT_CHECKLIST.md"
        target="_blank" rel="noopener noreferrer">Open GitHub checklist <ArrowUpRight size={15}/></a>
     </section>
     <section className="rail-panel">
