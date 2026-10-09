@@ -2,6 +2,7 @@ import type {Metadata,Viewport} from "next";
 import Script from "next/script";
 import "./globals.css";
 import "./appearance.css";
+import "./dark-override.css";
 
 export const metadata:Metadata={
  title:{default:"UNITY",template:"%s | UNITY"},
@@ -15,7 +16,7 @@ export const viewport:Viewport={
  colorScheme:"light dark",
  themeColor:[
   {media:"(prefers-color-scheme: light)",color:"#F7F6F2"},
-  {media:"(prefers-color-scheme: dark)",color:"#141C24"}
+  {media:"(prefers-color-scheme: dark)",color:"#171B20"}
  ]
 };
 
