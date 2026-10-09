@@ -1,5 +1,5 @@
 "use client";
-import {useState} from "react";
+import {useEffect,useState} from "react";
 import {Clock3,PlayCircle,ShieldCheck,Workflow} from "lucide-react";
 import type {Workspace,AutomationPlan} from "@/lib/types";
 
@@ -11,6 +11,7 @@ export default function AutomationRoom({projectId,workspace,onChange,disabled}:P
  const [action,setAction]=useState("");
  const project=workspace.projects.find(p=>p.id===projectId);
  const plans=workspace.automations.filter(a=>a.projectId===projectId);
+ useEffect(()=>{setName("");setTrigger("manual");setAction("");},[projectId]);
  function create(event:React.FormEvent<HTMLFormElement>){
   event.preventDefault(); if(!project||disabled)return;
   const title=name.trim(),step=action.trim();
