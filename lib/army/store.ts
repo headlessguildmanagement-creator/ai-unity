@@ -25,7 +25,7 @@ export async function ensureArmyRoster(ownerId:string){
   enabled:true,
   updated_at:new Date().toISOString()
  }));
- const {error}=await admin.from("army_agents").upsert(rows,{onConflict:"id"});
+ const {error}=await admin.from("army_agents").upsert(rows,{onConflict:"owner_id,id"});
  if(error)throw new Error(`Unable to sync UNITY Army roster: ${error.message}`);
 }
 
@@ -70,10 +70,16 @@ export async function createArmyTask(ownerId:string,input:any){
  const scope=canAgentAcceptArea(agent,area);
  if(!scope.allowed)throw new Error(scope.reason);
  const admin=createSupabaseAdmin();
+ const projectId=typeof input?.projectId==="string"&&input.projectId.trim()?input.projectId.trim():null;
+ if(projectId){
+  const {data:project,error:projectError}=await admin.from("projects").select("id").eq("id",projectId).eq("owner_id",ownerId).maybeSingle();
+  if(projectError)throw new Error(`Unable to validate project: ${projectError.message}`);
+  if(!project)throw new Error("Project not found for this UNITY owner");
+ }
  const now=new Date().toISOString();
  const payload={
   owner_id:ownerId,
-  project_id:typeof input?.projectId==="string"&&input.projectId.trim()?input.projectId.trim():null,
+  project_id:projectId,
   title,
   area,
   assigned_agent_id:agentId,
