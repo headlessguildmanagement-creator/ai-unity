@@ -12,10 +12,12 @@ const draftStarters=[
  {label:"Outline next steps",value:"Goal:\nNext steps:\n1. "}
 ];
 export default function ChatPanel({projectId,workspace,onChange,disabled}:Props){
- const [draft,setDraft]=useState("");
+ const [drafts,setDrafts]=useState<Record<string,string>>({});
  const [error,setError]=useState("");
  const [contextOpen,setContextOpen]=useState(true);
  const active=workspace.projects.find(p=>p.id===projectId);
+ const draft=projectId?drafts[projectId]||"":"";
+ const setDraft=(value:string)=>{if(projectId)setDrafts(old=>({...old,[projectId]:value}))};
  const conversation=useMemo(()=>workspace.messages.filter(m=>m.projectId===projectId),[workspace.messages,projectId]);
  const context=useMemo(()=>active?previewProjectContext(workspace,projectId):null,[workspace,projectId,active]);
  function submit(event:React.FormEvent<HTMLFormElement>){
