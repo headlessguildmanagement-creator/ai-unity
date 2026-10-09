@@ -117,7 +117,7 @@ export async function recordArmyHeartbeat(ownerId:string,input:any){
  const {error}=await admin.from("army_heartbeats").upsert(row,{onConflict:"owner_id,agent_id"});
  if(error)throw new Error(`Unable to record Army heartbeat: ${error.message}`);
  if(row.task_id){
-  const {error:taskError}=await admin.from("army_tasks").update({status,row:undefined,progress_current:row.progress_current,progress_total:row.progress_total,branch:row.branch,blocked_by:row.blocked_by,updated_at:now}).eq("id",row.task_id).eq("owner_id",ownerId);
+  const {error:taskError}=await admin.from("army_tasks").update({status:row.status,progress_current:row.progress_current,progress_total:row.progress_total,branch:row.branch,blocked_by:row.blocked_by,updated_at:now}).eq("id",row.task_id).eq("owner_id",ownerId);
   if(taskError)throw new Error(`Unable to update Army task: ${taskError.message}`);
  }
  await admin.from("army_events").insert({owner_id:ownerId,agent_id:agentId,task_id:row.task_id,event_type:"HEARTBEAT",message:row.last_action??status,payload:{status,progressCurrent:row.progress_current,progressTotal:row.progress_total}});
