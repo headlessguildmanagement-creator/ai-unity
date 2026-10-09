@@ -37,11 +37,17 @@ test("UNITY Army write routes enforce origin, authentication and bounded bodies"
  }
 });
 
-test("UNITY Army assignments enforce specialty and project ownership",()=>{
+test("UNITY Army assignments enforce specialty, project and parent ownership",()=>{
  assert.match(store,/canAgentAcceptArea\(agent,area\)/);
- assert.match(store,/eq\(\"owner_id\",ownerId\)/);
  assert.match(store,/Project not found for this UNITY owner/);
+ assert.match(store,/Parent task not found for this UNITY owner/);
  assert.match(store,/TASK_ASSIGNED/);
- assert.match(store,/HEARTBEAT/);
  assert.match(store,/army_events/);
+});
+
+test("UNITY Army heartbeats cannot hijack another owner or agent task",()=>{
+ assert.match(store,/Army task not found for this UNITY owner/);
+ assert.match(store,/Army task is assigned to a different agent/);
+ assert.match(store,/eq\(\"assigned_agent_id\",agentId\)/);
+ assert.match(store,/HEARTBEAT/);
 });
