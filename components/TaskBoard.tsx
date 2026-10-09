@@ -7,7 +7,7 @@ const availableCapabilities=["research","coding","content","quality-assurance","
 export default function TaskBoard({projectId,workspace,onChange,disabled}:Props){
  const [title,setTitle]=useState("");
  const [capability,setCapability]=useState("research");
- const [evidence,setEvidence]=useState("");
+ const [evidenceByTask,setEvidenceByTask]=useState<Record<string,string>>({});
  const [error,setError]=useState("");
  const project=workspace.projects.find(p=>p.id===projectId);
  const tasks=workspace.tasks.filter(t=>t.projectId===projectId);
@@ -23,11 +23,13 @@ export default function TaskBoard({projectId,workspace,onChange,disabled}:Props)
  function move(task:LocalTask,state:LocalTask["state"],approvalId:string|null=null){
   if(disabled||!project)return;
   try{
+   const evidence=evidenceByTask[task.id]||"";
    const refs=state==="completed"?evidence.split("\n").map(x=>x.trim()).filter(Boolean):[];
    const next=transitionTask(task,{state,actor:"local-user",reason:"Manually changed in local preview",
     expectedRevision:task.revision,evidence:refs,approvalId});
    onChange({...workspace,tasks:workspace.tasks.map(t=>t.id===task.id?next:t)});
-   setEvidence("");setError("");
+   if(state==="completed"||state==="cancelled")setEvidenceByTask(old=>{const copy={...old};delete copy[task.id];return copy});
+   setError("");
   }catch(e){setError(e instanceof Error?e.message:"Could not change task state")}
  }
  return <section className="panel">
@@ -41,10 +43,10 @@ export default function TaskBoard({projectId,workspace,onChange,disabled}:Props)
    </form>
    {error&&<p role="alert" className="warning">{error}</p>}
    <div className="entry"><strong>{tasks.length} local tasks for {project.name}</strong></div>
-   {tasks.length===0?<p className="muted">No tasks yet.</p>:tasks.map(task=><article className="entry" key={task.id}>
+   {tasks.length===0?<p className="muted">No tasks yet.</p>:tasks.map(task=>{const evidence=evidenceByTask[task.id]||"";return <article className="entry" key={task.id}>
     <div className="entry-head"><strong>{task.title}</strong><span className="pill">{task.state}</span></div>
     <p className="muted">Capability: {task.requiredCapability} · Revision {task.revision}</p>
-    {task.state==="running"&&<label>Completion evidence reference(s), one per line<textarea value={evidence} onChange={e=>setEvidence(e.target.value)} placeholder="e.g. GitHub commit SHA, test run URL"/></label>}
+    {task.state==="running"&&<label>Completion evidence reference(s), one per line<textarea value={evidence} onChange={e=>setEvidenceByTask(old=>({...old,[task.id]:e.target.value}))} placeholder="e.g. GitHub commit SHA, test run URL"/></label>}
     <div className="controls">
       {task.state==="draft"&&<button disabled={disabled} onClick={()=>move(task,"queued")}>Queue locally</button>}
       {task.state==="queued"&&<button disabled={disabled} onClick={()=>move(task,"running")}>Mark in progress</button>}
@@ -55,7 +57,7 @@ export default function TaskBoard({projectId,workspace,onChange,disabled}:Props)
     </div>
     {task.evidence.length>0&&<p className="muted">Recorded evidence references: {task.evidence.join(", ")}</p>}
     {task.history.length>0&&<small>{task.history.length} recorded state transition(s)</small>}
-   </article>)}
+   </article>})}
   </>}
  </section>;
 }
