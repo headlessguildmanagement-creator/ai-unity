@@ -76,6 +76,12 @@ export async function createArmyTask(ownerId:string,input:any){
   if(projectError)throw new Error(`Unable to validate project: ${projectError.message}`);
   if(!project)throw new Error("Project not found for this UNITY owner");
  }
+ const parentTaskId=typeof input?.parentTaskId==="string"&&input.parentTaskId.trim()?input.parentTaskId.trim():null;
+ if(parentTaskId){
+  const {data:parent,error:parentError}=await admin.from("army_tasks").select("id").eq("id",parentTaskId).eq("owner_id",ownerId).maybeSingle();
+  if(parentError)throw new Error(`Unable to validate parent task: ${parentError.message}`);
+  if(!parent)throw new Error("Parent task not found for this UNITY owner");
+ }
  const now=new Date().toISOString();
  const payload={
   owner_id:ownerId,
@@ -83,7 +89,7 @@ export async function createArmyTask(ownerId:string,input:any){
   title,
   area,
   assigned_agent_id:agentId,
-  parent_task_id:typeof input?.parentTaskId==="string"&&input.parentTaskId.trim()?input.parentTaskId.trim():null,
+  parent_task_id:parentTaskId,
   status:"ASSIGNED",
   progress_current:0,
   progress_total:Number.isFinite(input?.progressTotal)?Math.max(0,Math.floor(input.progressTotal)):null,
@@ -95,7 +101,7 @@ export async function createArmyTask(ownerId:string,input:any){
  if(error)throw new Error(`Unable to create Army task: ${error.message}`);
  await Promise.all([
   admin.from("army_heartbeats").upsert({owner_id:ownerId,agent_id:agentId,task_id:data.id,status:"ASSIGNED",last_action:`Assigned: ${title}`,progress_current:0,progress_total:payload.progress_total,branch:payload.branch,blocked_by:[],heartbeat_at:now},{onConflict:"owner_id,agent_id"}),
-  admin.from("army_events").insert({owner_id:ownerId,agent_id:agentId,task_id:data.id,event_type:"TASK_ASSIGNED",message:title,payload:{area,projectId:payload.project_id}})
+  admin.from("army_events").insert({owner_id:ownerId,agent_id:agentId,task_id:data.id,event_type:"TASK_ASSIGNED",message:title,payload:{area,projectId:payload.project_id,parentTaskId:payload.parent_task_id}})
  ]);
  return data;
 }
@@ -107,11 +113,18 @@ export async function recordArmyHeartbeat(ownerId:string,input:any){
  const status=cleanText(input?.status,"status",40);
  if(!VALID_STATUSES.has(status))throw new Error("Invalid Army status");
  const admin=createSupabaseAdmin();
+ const taskId=typeof input?.taskId==="string"&&input.taskId.trim()?input.taskId.trim():null;
+ if(taskId){
+  const {data:task,error:taskLookupError}=await admin.from("army_tasks").select("id,assigned_agent_id").eq("id",taskId).eq("owner_id",ownerId).maybeSingle();
+  if(taskLookupError)throw new Error(`Unable to validate Army task: ${taskLookupError.message}`);
+  if(!task)throw new Error("Army task not found for this UNITY owner");
+  if(task.assigned_agent_id!==agentId)throw new Error("Army task is assigned to a different agent");
+ }
  const now=new Date().toISOString();
  const row={
   owner_id:ownerId,
   agent_id:agentId,
-  task_id:typeof input?.taskId==="string"&&input.taskId.trim()?input.taskId.trim():null,
+  task_id:taskId,
   status,
   last_action:typeof input?.lastAction==="string"?input.lastAction.trim().slice(0,500)||null:null,
   progress_current:Number.isFinite(input?.progressCurrent)?Math.max(0,Math.floor(input.progressCurrent)):null,
@@ -123,7 +136,7 @@ export async function recordArmyHeartbeat(ownerId:string,input:any){
  const {error}=await admin.from("army_heartbeats").upsert(row,{onConflict:"owner_id,agent_id"});
  if(error)throw new Error(`Unable to record Army heartbeat: ${error.message}`);
  if(row.task_id){
-  const {error:taskError}=await admin.from("army_tasks").update({status:row.status,progress_current:row.progress_current,progress_total:row.progress_total,branch:row.branch,blocked_by:row.blocked_by,updated_at:now}).eq("id",row.task_id).eq("owner_id",ownerId);
+  const {error:taskError}=await admin.from("army_tasks").update({status:row.status,progress_current:row.progress_current,progress_total:row.progress_total,branch:row.branch,blocked_by:row.blocked_by,updated_at:now}).eq("id",row.task_id).eq("owner_id",ownerId).eq("assigned_agent_id",agentId);
   if(taskError)throw new Error(`Unable to update Army task: ${taskError.message}`);
  }
  await admin.from("army_events").insert({owner_id:ownerId,agent_id:agentId,task_id:row.task_id,event_type:"HEARTBEAT",message:row.last_action??status,payload:{status,progressCurrent:row.progress_current,progressTotal:row.progress_total}});
