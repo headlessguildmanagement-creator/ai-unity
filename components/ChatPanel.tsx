@@ -1,5 +1,5 @@
 "use client";
-import {useMemo,useState} from "react";
+import {useEffect,useMemo,useState} from "react";
 import {ArrowUp,BookOpenCheck,BrainCircuit,ChevronDown,FileText,LockKeyhole,MessageSquareText,ShieldCheck,Sparkles} from "lucide-react";
 import type {Workspace} from "@/lib/types";
 import {addUserMessage,previewProjectContext} from "@/lib/chat.mjs";
@@ -18,6 +18,25 @@ export default function ChatPanel({projectId,workspace,onChange,disabled}:Props)
  const active=workspace.projects.find(p=>p.id===projectId);
  const draft=projectId?drafts[projectId]||"":"";
  const setDraft=(value:string)=>{if(projectId)setDrafts(old=>({...old,[projectId]:value}))};
+ useEffect(()=>{
+  if(!projectId)return;
+  try{
+   const raw=sessionStorage.getItem("unity-pending-chat-v1");
+   if(!raw)return;
+   const pending=JSON.parse(raw) as {projectId?:unknown;text?:unknown;createdAt?:unknown};
+   const fresh=typeof pending.createdAt==="number"&&Date.now()-pending.createdAt<10*60*1000;
+   if(pending.projectId!==projectId||typeof pending.text!=="string"||!pending.text.trim()||!fresh)return;
+   const incoming=pending.text.trim().slice(0,8000);
+   setDrafts(old=>{
+    const existing=old[projectId]?.trim()||"";
+    const combined=existing?`${existing}\n\n${incoming}`:incoming;
+    return {...old,[projectId]:combined.slice(0,8000)};
+   });
+   sessionStorage.removeItem("unity-pending-chat-v1");
+  }catch{
+   try{sessionStorage.removeItem("unity-pending-chat-v1")}catch{}
+  }
+ },[projectId]);
  const conversation=useMemo(()=>workspace.messages.filter(m=>m.projectId===projectId),[workspace.messages,projectId]);
  const context=useMemo(()=>active?previewProjectContext(workspace,projectId):null,[workspace,projectId,active]);
  function submit(event:React.FormEvent<HTMLFormElement>){

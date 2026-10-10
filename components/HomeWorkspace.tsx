@@ -1,6 +1,7 @@
 "use client";
 
 import {FormEvent,useMemo,useState} from "react";
+import Image from "next/image";
 import {
  ArrowRight,BookOpen,Folder,MessageCircle,Plus,
  Search,ShieldCheck,Sparkles,Workflow,Zap
@@ -16,16 +17,8 @@ type Props={
  onNewProject:()=>void;
 };
 
-const genericProjectWords=new Set(["project","client","website","site","app","workspace","work","the","and"]);
 function normalize(value:string){
  return value.toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
-}
-function projectMatchScore(projectName:string,intent:string){
- const normalizedName=normalize(projectName);
- if(!normalizedName)return 0;
- if((` ${intent} `).includes(` ${normalizedName} `))return 2;
- const tokens=normalizedName.split(" ").filter(token=>token.length>=3&&!genericProjectWords.has(token));
- return tokens.some(token=>(` ${intent} `).includes(` ${token} `))?1:0;
 }
 
 export default function HomeWorkspace({
@@ -47,9 +40,13 @@ export default function HomeWorkspace({
   const value=normalize(raw);
   if(!value)return;
 
-  const scored=workspace.projects.map(project=>({project,score:projectMatchScore(project.name,value)})).filter(item=>item.score>0);
-  const highest=scored.reduce((max,item)=>Math.max(max,item.score),0);
-  const matchedProjects=scored.filter(item=>item.score===highest).map(item=>item.project);
+  const matchedProjects=workspace.projects.filter(project=>{
+   const name=normalize(project.name);
+   if(name.length<2)return false;
+   const words=name.split(" ").filter(Boolean);
+   return (` ${value} `).includes(` ${name} `) ||
+    words.some(word=>word.length>=3&&new RegExp(`\\b${word}\\b`).test(value));
+  });
 
   if(matchedProjects.length>1){
    setRouteNotice("I found more than one matching project. Choose the project first so UNITY does not guess.");
@@ -74,7 +71,19 @@ export default function HomeWorkspace({
   else if(/task|plan|todo|mission|work/.test(value))onNavigate("Tasks");
   else if(/yesterday|brief|update|morning/.test(value))onNavigate("Briefing");
   else if(/connect|integration|notion|asana|calendar|gmail|email|crm/.test(value))onNavigate("Connections");
-  else onNavigate("Chat");
+  else {
+   const targetProjectId=matchedProject?.id||selectedProjectId||(workspace.projects.length===1?workspace.projects[0].id:"");
+   if(!targetProjectId){
+    setRouteNotice("Choose a project first so UNITY does not put this request in the wrong place.");
+    onNavigate("Projects");
+    return;
+   }
+   try{
+    sessionStorage.setItem("unity-pending-chat-v1",JSON.stringify({projectId:targetProjectId,text:raw,createdAt:Date.now()}));
+   }catch{}
+   onSelectProject(targetProjectId);
+   onNavigate("Chat");
+  }
   setIntent("");
  }
 
